@@ -3,24 +3,61 @@ import yfinance as yf
 import matplotlib.pyplot as plt
 import numpy as np
 import streamlit as st
+from datetime import datetime, timedelta
+import json
 
-tickers = ['AYYLF', 'AYAAF', 'BDOUY', 'BPHLY', 'GTMEY', 'JBFCF',
-           'JGSHF', 'MAEOY', 'SVTMF', 'SMGBF', 'UVRBF', 'PHI']
+stock_dict = {}
+stocks_df = pd.DataFrame()
+
+with open('stocks.json', 'r') as stocks:
+    stock_dict = json.load(stocks)
+
+
+def load_data(stocks, start, end):
+    global stocks_df
+
+    stocks = [stock_dict[stock] for stock in stocks]
+    url_prefix = 'https://www.marketwatch.com/investing/stock'
+    stocks_df = pd.DataFrame()
+    start = start.strftime("%m/%d/%Y")
+    end = end.strftime("%m/%d/%Y")
+
+    for stock in stocks:
+        csv_url = f'{url_prefix}/{stock}/downloaddatapartial?startdate={start}%2000:00:00&enddate={end}%2000:00:00&frequency=p1d&csvdownload=true&downloadpartial=false&newdates=false&countrycode=ph'
+
+        df = pd.read_csv(csv_url, usecols=['Date', 'Close'], parse_dates=['Date'])
+        
+        if 'Date' not in stocks_df.columns:
+            stocks_df['Date'] = df['Date']
+
+        stocks_df[stock.upper()] = df['Close']
+
+    stocks_df.set_index('Date', inplace=True)
+    
+
+    
 
 def main():
     st.title("PSE Investment Portfolio Dashboard")
 
     options = st.multiselect(
         'Select stocks',
-        tickers,
-        ['AYYLF', 'JBFCF', 'SMGBF']
+        stock_dict.keys(),
+        list(stock_dict.keys())[:3],
     )
-    assets = ','.join(options)
 
-    start = st.date_input("Pick a starting date for analysis",
-                          value=pd.to_datetime('2023-01-01'))
+    start = st.date_input("Start date",
+                          value=datetime.now() - timedelta(days=7),
+                          max_value=datetime.today())
+    end = st.date_input("End date",
+                          max_value=datetime.today())
     
-    data = yf.download(assets, start=start)['Adj Close']
+    
+
+    st.button(label="LOAD",on_click=load_data(options, start, end))
+    # st.write(stocks_df)
+    
+    data = stocks_df
 
     # return calculation
     ret_df = data.pct_change()
@@ -28,7 +65,12 @@ def main():
     pf_cum_ret = cum_ret.mean(axis=1)
 
     # benchmark
-    benchmark = yf.download('PSEI.PS', start=start)['Adj Close']
+    psei = f"https://www.marketwatch.com/investing/index/psei/downloaddatapartial?startdate={start}%2000:00:00&enddate={end}%2023:59:59&frequency=p1d&csvdownload=true&downloadpartial=false&newdates=false&countrycode=ph"
+    benchmark = pd.read_csv(psei, 
+                            usecols=['Date', 'Close'], 
+                            parse_dates=['Date'],
+                            index_col='Date',
+                            thousands=",")
     bench_ret = benchmark.pct_change()
     bench_dev = (bench_ret + 1).cumprod() - 1
 
