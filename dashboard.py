@@ -8,6 +8,8 @@ from marketwatch_loader import load_df
 
 with open('stocks.json', 'r') as stocks:
     stock_dict = json.load(stocks)
+    sym_to_name = {sym: name for name, sym in stock_dict.items()}
+
 
 def main():
     st.title("PSE Investment Portfolio Dashboard")
@@ -31,7 +33,6 @@ def main():
                 stocks = load_df(symbols,start,end)
             load_analysis(index, stocks)
         
-        
     
 def load_analysis(index, stocks):
     st.divider()
@@ -46,10 +47,11 @@ def load_analysis(index, stocks):
     bench_dev = (bench_ret + 1).cumprod() - 1
 
     # covariance
-    W = (np.ones(len(returns.cov()))/len(returns.cov()))
-    pf_std = (W.dot(returns.cov()).dot(W)) ** (1/2)
+    equal_weights = (np.ones(len(returns.cov()))/len(returns.cov()))
+    pf_std = (equal_weights.dot(returns.cov()).dot(equal_weights)) ** (1/2)
     
     plot_performance(pf_cumulative_ret, bench_dev)
+    plot_allocation(equal_weights, stocks)
 
     
 def plot_performance(portfolio_perf, benchmark_perf):
@@ -61,7 +63,16 @@ def plot_performance(portfolio_perf, benchmark_perf):
         dtick="M1",
         ticklabelmode="period")
     
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig)
+
+
+def plot_allocation(portfolio_weights, stocks):
+    fig = px.pie(portfolio_weights, 
+                 names=[sym_to_name[stock.lower()] for stock in stocks.columns], 
+                 color_discrete_sequence=px.colors.qualitative.Dark24,
+                 title='Portfolio Distribution')
+    st.plotly_chart(fig)
+
 
 if __name__ == "__main__":
     main()
