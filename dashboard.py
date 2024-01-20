@@ -17,15 +17,20 @@ def main():
     options = st.multiselect('Select stocks', stock_dict.keys())
 
     if options != []:
-        start = st.date_input("Start date",
-                            value=datetime.now() - timedelta(days=7),
-                            max_value=datetime.today())
-        end = st.date_input("End date",
-                            max_value=datetime.today())
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            start = st.date_input("Start date",
+                                  value=datetime.now() - timedelta(days=7),
+                                  max_value=datetime.today())
+        with col2:
+            end = st.date_input("End date",
+                                max_value=datetime.today())
         
         symbols = [stock_dict[stock] for stock in options]
 
-        button = st.button('LOAD')
+        button = st.button('LOAD', use_container_width=True)
 
         if button:
             with st.spinner('Downloading data...'):
